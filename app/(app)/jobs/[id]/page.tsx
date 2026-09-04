@@ -46,6 +46,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const polling = useRunPolling(runId, () => {
     void jobQuery.refetch();
   });
+  const run = polling.run;
+  const result = run?.result;
 
   const handleStart = () => {
     startRun.mutate(undefined, {
@@ -104,20 +106,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           </p>
         )}
 
-        {runId && !polling.run && polling.polling && (
+        {runId && !run && polling.polling && (
           <p className="text-sm text-neutral-500">Loading run…</p>
         )}
 
         {polling.fetchError && <p className="text-sm text-red-600">{polling.fetchError}</p>}
 
-        {polling.run && (
+        {run && (
           <>
             <div className="flex items-center justify-between gap-4">
-              <StatusBadge value={polling.run.stage} />
-              <span className="text-sm text-neutral-500">{polling.run.progressPct}%</span>
+              <StatusBadge value={run.stage} />
+              <span className="text-sm text-neutral-500">{run.progressPct}%</span>
             </div>
 
-            <ProgressBar value={polling.run.progressPct} />
+            <ProgressBar value={run.progressPct} failed={run.stage === "FAILED"} />
 
             <div>
               <h2 className="mb-2 text-sm font-medium">Run log</h2>
@@ -127,6 +129,51 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 ))}
               </ul>
             </div>
+
+            {run.stage === "FAILED" && (
+              <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
+                <p>{run.error ?? "The encode could not be completed."}</p>
+
+                <button
+                  type="button"
+                  onClick={handleStart}
+                  disabled={startRun.isPending}
+                  className="mt-3 rounded-md border border-red-300 px-3 py-1.5 font-medium disabled:opacity-50"
+                >
+                  {startRun.isPending ? "Retrying…" : "Retry"}
+                </button>
+              </div>
+            )}
+
+            {run.stage === "COMPLETED" && result && (
+              <div>
+                <h2 className="text-sm font-medium">Results</h2>
+                <p className="mt-1 text-sm text-neutral-500">
+                  Duration: {result.durationSec} seconds
+                </p>
+
+                <table className="mt-3 w-full text-left text-sm">
+                  <thead className="border-b border-neutral-200 text-neutral-500">
+                    <tr>
+                      <th className="py-2 font-medium">Rendition</th>
+                      <th className="py-2 font-medium">Resolution</th>
+                      <th className="py-2 text-right font-medium">Size</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200">
+                    {result.renditions.map((rendition) => (
+                      <tr key={rendition.label}>
+                        <td className="py-2">{rendition.label}</td>
+                        <td className="py-2">
+                          {rendition.width} × {rendition.height}
+                        </td>
+                        <td className="py-2 text-right">{rendition.sizeMb} MB</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
       </section>
