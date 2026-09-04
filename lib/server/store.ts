@@ -53,7 +53,43 @@ export const FAIL_URL = "https://cdn.example.com/videos/corrupt.mp4";
  * the failing URL), watch them fail, then make them pass.
  */
 export function computeRun(record: RunRecord, now: number = Date.now()): EncodeRun {
-  throw new Error("Not implemented: computeRun (see TODO above)");
+  const elapsed = Math.max(0, now - record.startedAt);
+  const progressPct = Math.min(
+    100,
+    Math.round((elapsed / TIMELINE.transcodingEndsMs) * 100),
+  );
+
+  const run = {
+    id: record.id,
+    jobId: record.jobId,
+    progressPct,
+  };
+
+  if (elapsed < TIMELINE.queuedEndsMs) {
+    return {
+      ...run,
+      stage: "QUEUED",
+      message: "Waiting to start…",
+    };
+  }
+
+  if (elapsed < TIMELINE.downloadingEndsMs) {
+    return {
+      ...run,
+      stage: "DOWNLOADING",
+      message: "Downloading source…",
+    };
+  }
+
+  if (elapsed < TIMELINE.transcodingEndsMs) {
+    return {
+      ...run,
+      stage: "TRANSCODING",
+      message: "Transcoding renditions…",
+    };
+  }
+
+  throw new Error("Not implemented: terminal run states");
 }
 
 // ---------------------------------------------------------------------------
