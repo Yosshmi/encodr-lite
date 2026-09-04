@@ -1,4 +1,5 @@
-import { error } from "@/lib/server/http";
+import { error, json, withAuth } from "@/lib/server/http";
+import { listJobs } from "@/lib/server/store";
 
 // ---------------------------------------------------------------------------
 // TASK 2 — TODO(candidate): implement both handlers.
@@ -30,8 +31,8 @@ import { error } from "@/lib/server/http";
 //   curl -i localhost:3000/api/jobs -H "authorization: Bearer $TOKEN" \
 //     -H 'content-type: application/json' -d '{"sourceUrl":"nope"}'                   # expect 422
 
-export async function GET(_req: Request) {
-  return error(501, "Not implemented: GET /api/jobs");
+export async function GET(req: Request) {
+  return withAuth(req, () => json(listJobs()));
 }
 
 export async function POST(_req: Request) {
