@@ -54,9 +54,11 @@ export const FAIL_URL = "https://cdn.example.com/videos/corrupt.mp4";
  */
 export function computeRun(record: RunRecord, now: number = Date.now()): EncodeRun {
   const elapsed = Math.max(0, now - record.startedAt);
+  const failed = record.sourceUrl === FAIL_URL && elapsed >= TIMELINE.failAtMs;
+  const progressElapsed = failed ? TIMELINE.failAtMs : elapsed;
   const progressPct = Math.min(
     100,
-    Math.round((elapsed / TIMELINE.transcodingEndsMs) * 100),
+    Math.round((progressElapsed / TIMELINE.transcodingEndsMs) * 100),
   );
 
   const run = {
@@ -64,6 +66,24 @@ export function computeRun(record: RunRecord, now: number = Date.now()): EncodeR
     jobId: record.jobId,
     progressPct,
   };
+
+  if (failed) {
+    return {
+      ...run,
+      stage: "FAILED",
+      message: "Encode failed.",
+      error: "The source media is corrupt and could not be transcoded.",
+    };
+  }
+
+  if (elapsed >= TIMELINE.transcodingEndsMs) {
+    return {
+      ...run,
+      stage: "COMPLETED",
+      message: "Encode complete.",
+      result: makeResult(),
+    };
+  }
 
   if (elapsed < TIMELINE.queuedEndsMs) {
     return {
@@ -81,15 +101,11 @@ export function computeRun(record: RunRecord, now: number = Date.now()): EncodeR
     };
   }
 
-  if (elapsed < TIMELINE.transcodingEndsMs) {
-    return {
-      ...run,
-      stage: "TRANSCODING",
-      message: "Transcoding renditions…",
-    };
-  }
-
-  throw new Error("Not implemented: terminal run states");
+  return {
+    ...run,
+    stage: "TRANSCODING",
+    message: "Transcoding renditions…",
+  };
 }
 
 // ---------------------------------------------------------------------------
