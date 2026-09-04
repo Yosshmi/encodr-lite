@@ -1,109 +1,120 @@
-# Encodr Lite — Intern Take-Home
+# Encodr Lite
 
-Thanks for taking the time on this. **Encodr Lite** is a small media-transcoding dashboard: a
-signed-in user creates an encode **job** from a media URL, presses **Start encode**, watches the
-progress update live, and sees the output files when it finishes.
+Encodr Lite is a small media-transcoding dashboard built with Next.js, React, and TypeScript. A signed-in user can create an encode job from a media URL, start a simulated run, watch its progress, and see the results or retry a failure.
 
-The full brief — the six tasks, what we look for, and the ground rules — is in **`BRIEF.md`**.
-**Read that first.** This file is just how to run things, and it's where you write up your work when
-you're done.
+## Run the project
 
-## Run it
+- Use Node.js 20 or later.
+- Install the dependencies and start the app:
 
 ```bash
 npm install
-npm run dev          # http://localhost:3000
-npm run test:run     # tests (one example test is included and passes)
-npm run typecheck    # tsc --noEmit
-npm run build        # production build
+npm run dev
 ```
 
-Requires **Node 20+** (`.nvmrc` says 20).
+- Open [http://localhost:3000](http://localhost:3000).
+- Sign in with:
+  - Email: `demo@encodr.dev`
+  - Password: `password123`
+- Run the checks with:
 
-**Demo login:** `demo@encodr.dev` / `password123`
-
-On a fresh checkout, sign-in works and the app loads, but the jobs list shows an error and the two
-main screens are placeholders. That's expected — `GET /api/jobs` returns a 501 until you write it.
-Search the project for `TODO(candidate)` to find everything that's yours; there are six.
-
-Nothing here needs a database. State lives in memory, so restarting the dev server wipes your jobs.
-That's fine — don't work around it.
-
-## Where things are
-
-```
-app/
-  signin/page.tsx              working sign-in — your example of RHF + Zod
-  (app)/layout.tsx             route guard for everything signed-in
-  (app)/jobs/page.tsx          TASK 4 — the create-job form
-  (app)/jobs/[id]/page.tsx     TASK 5 — run controls, progress, results
-  api/auth/login/route.ts      provided
-  api/jobs/route.ts            TASK 2 — list + create
-  api/jobs/[id]/route.ts       provided — your example route handler
-  api/runs/route.ts            provided — starts a run
-  api/runs/[id]/route.ts       provided — the endpoint you'll poll
-lib/
-  types.ts                     the data model + the run TIMELINE. Read this first.
-  schemas.ts                   TASK 1 — source-URL validation
-  server/auth.ts               provided — token signing
-  server/http.ts               provided — json / error / withAuth / validationError
-  server/store.ts              TASK 3 — computeRun()
-  client/api.ts                provided — the fetch wrapper
-  client/auth-context.tsx      provided
-  client/hooks.ts              worked React Query examples + two TODOs
-  client/use-run-polling.ts    TASK 5 — the polling hook
-components/                    provided — StatusBadge, ProgressBar
-__tests__/                     TASK 6 — your tests go here
+```bash
+npm run test:run
+npm run typecheck
+npm run build
 ```
 
-## A suggested first hour
+- On Windows PowerShell, use `npm.cmd` if script execution blocks `npm`:
 
-If you're not sure where to start:
+```powershell
+npm.cmd run dev
+npm.cmd run test:run
+npm.cmd run typecheck
+npm.cmd run build
+```
 
-1. `npm install && npm run dev`, sign in, look around. The jobs list will show an error — good, that's
-   your first task.
-2. Read `lib/types.ts` top to bottom. It's short and it's the whole data model.
-3. Read `app/api/jobs/[id]/route.ts` — a complete route handler — then write Task 2 in the same style
-   and check it with the curl commands in the file.
-4. The list page lights up. Now do Task 1, then Task 3 (tests first).
+- Jobs and runs are stored in memory and are cleared when the server restarts.
 
-## Useful to know
+## What's working
 
-- `https://cdn.example.com/videos/corrupt.mp4` is rigged to **fail** partway through its run. Use it
-  to build the error path.
-- A run takes about **12 seconds** from start to finish, so you won't be waiting around.
-- Run timings are constants in `TIMELINE` (`lib/types.ts`). Use them instead of typing numbers, so
-  your tests and ours agree.
-- `computeRun` takes `now` as an argument on purpose — you can test the 8-second mark without
-  waiting eight seconds.
+- Completed source URL validation.
+- Accepts HTTP and HTTPS URLs that include a file path.
+- Rejects empty values, invalid URLs, unsupported protocols, and URLs without a file path.
+- Completed authenticated job-list and job-creation API routes.
+- Completed the run state logic with exact time boundaries.
+- Completed the create-job form with browser and server validation.
+- Completed live progress, percentage, and log updates.
+- Completed successful rendition results.
+- Completed corrupt-source failure and retry.
+- Added schema, run-state, and form tests.
+- No known tasks are incomplete.
 
----
+## How to see the failure path
 
-# Your write-up
+- Sign in with the demo account.
+- Create a job using `https://cdn.example.com/videos/corrupt.mp4`.
+- Open the job and select **Start encode**.
+- Wait approximately eight seconds.
+- Confirm the stage changes to `FAILED`.
+- Confirm the progress bar turns red.
+- Confirm the error message and **Retry** button appear.
+- Selecting **Retry** creates a fresh run.
+- The retry also fails because the source URL is intentionally corrupt.
 
-Please replace this section before submitting. See `BRIEF.md` §6 for what we're after.
+## Decisions and assumptions
 
-### What's working
+- Used the same Zod validation rules in the browser and API.
+- Browser validation gives quick feedback to the user.
+- Server validation protects the API when a request does not come from the form.
+- Treated any HTTP or HTTPS URL with more than `/` in its path as a usable source.
+- Did not restrict file extensions because the brief does not list supported extensions.
+- Used the provided `TIMELINE` values for every run stage.
+- Calculated the run stage from elapsed time instead of using server timers.
+- Checked corrupt-source failure before normal completion so a failed run stays failed.
+- Froze failed progress at the eight-second failure point.
+- Used the run stage to decide what the detail page should show.
+- Used the absence of a run ID as the idle state.
+- Kept the active run ID in local React state.
+- A page refresh does not automatically resume an earlier run.
+- Fetched the run immediately and then approximately once per second.
+- Cleared the interval when the run finished, changed, or the page closed.
+- Used a cancellation flag to stop an old request from updating the page after cleanup.
+- Avoided adding the same log message twice in a row.
+- Asked React Query to reload server data after creating a job or starting a run.
 
-<!-- Which of the six tasks are done? Anything half-finished or knowingly broken? -->
+## What was hardest
 
-### How to see the failure path
+- Task 5 was the most challenging part for me.
+- I had not previously worked deeply with polling and React effect cleanup.
+- I had to understand that `clearInterval` only stops future timer calls.
+- A request that already started can still finish after the user leaves the page.
+- I broke the work into immediate fetching, one-second polling, finish detection, timer cleanup, and old-request protection.
+- I used a cancellation flag so an old request cannot update a page after cleanup.
+- I started a run, navigated away before it finished, and confirmed that requests for the old run stopped.
+- This helped me understand polling as a lifecycle problem instead of only a repeating timer.
 
-<!-- Which URL, which screen. -->
+## Testing
 
-### Decisions and assumptions
+- Tested valid HTTP and HTTPS URLs.
+- Tested empty values, invalid URLs, FTP URLs, and URLs without a file path.
+- Tested exact run-stage boundaries.
+- Tested successful completion and result data.
+- Tested that progress remains between 0 and 100.
+- Tested corrupt-source failure and frozen progress.
+- Tested that an invalid form value shows an error and does not call the API.
+- Wrote the `computeRun` tests before implementing the function.
+- Ran the tests against the original placeholder and watched them fail.
+- Current result: 3 test files and 10 tests pass.
+- The TypeScript check and production build also pass.
 
-<!-- How did you model the detail page's state? How does your polling clean up? Anything the brief
-     left ambiguous, and what you assumed. -->
+## What I would do next
 
-### What was hardest
+- Pause polling while the browser tab is hidden.
+- Make progress move smoothly between server responses.
+- Show relative job creation times.
+- Make form errors easier for screen-reader users to notice.
+- Store jobs in a real database so they remain after a server restart.
 
-<!-- Be honest here — we read this part closely. What confused you, and how did you work it out? -->
+## Time spent
 
-### What I'd do next
-
-<!-- With another day. -->
-
-### Time spent
-
-<!-- Roughly. There's no wrong answer; it helps us calibrate the exercise. -->
+- Approximately 8 hours.
