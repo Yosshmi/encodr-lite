@@ -1,8 +1,10 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
-import { useJob } from "@/lib/client/hooks";
+import { useJob, useStartRun } from "@/lib/client/hooks";
+import { useRunPolling } from "@/lib/client/use-run-polling";
+import { ProgressBar } from "@/components/progress-bar";
 import { StatusBadge } from "@/components/status-badge";
 
 // The header (title, source URL, status badge, loading and not-found states) is provided.
@@ -39,6 +41,19 @@ import { StatusBadge } from "@/components/status-badge";
 export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const jobQuery = useJob(id);
+  const [runId, setRunId] = useState<string | null>(null);
+  const startRun = useStartRun(id);
+  const polling = useRunPolling(runId, () => {
+    void jobQuery.refetch();
+  });
+
+  const handleStart = () => {
+    startRun.mutate(undefined, {
+      onSuccess: ({ runId }) => {
+        setRunId(runId);
+      },
+    });
+  };
 
   if (jobQuery.isLoading) {
     return <p className="text-sm text-neutral-500">Loading job…</p>;
@@ -71,10 +86,50 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         <StatusBadge value={job.status} />
       </div>
 
-      <p className="rounded-md border border-dashed border-neutral-300 p-4 text-sm text-neutral-500">
-        TODO(candidate): Start encode button, live progress, log, failure + retry, and the results
-        table.
-      </p>
+      <section className="space-y-4 rounded-md border border-neutral-200 p-4">
+        {!runId && (
+          <button
+            type="button"
+            onClick={handleStart}
+            disabled={startRun.isPending}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {startRun.isPending ? "Starting…" : "Start encode"}
+          </button>
+        )}
+
+        {startRun.isError && (
+          <p className="text-sm text-red-600">
+            {startRun.error instanceof Error ? startRun.error.message : "Could not start encode"}
+          </p>
+        )}
+
+        {runId && !polling.run && polling.polling && (
+          <p className="text-sm text-neutral-500">Loading run…</p>
+        )}
+
+        {polling.fetchError && <p className="text-sm text-red-600">{polling.fetchError}</p>}
+
+        {polling.run && (
+          <>
+            <div className="flex items-center justify-between gap-4">
+              <StatusBadge value={polling.run.stage} />
+              <span className="text-sm text-neutral-500">{polling.run.progressPct}%</span>
+            </div>
+
+            <ProgressBar value={polling.run.progressPct} />
+
+            <div>
+              <h2 className="mb-2 text-sm font-medium">Run log</h2>
+              <ul className="space-y-1 text-sm text-neutral-600">
+                {polling.log.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }
